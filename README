@@ -1,0 +1,8 @@
+Google Finance Screener
+=======================
+
+This is a Ruby interface to Google's Finance Screener.  It's completely unofficial.
+
+http://www.google.com/finance/stockscreener
+
+https://github.com/davidw/google-screener
