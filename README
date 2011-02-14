@@ -6,3 +6,7 @@ This is a Ruby interface to Google's Finance Screener.  It's completely unoffici
 http://www.google.com/finance/stockscreener
 
 https://github.com/davidw/google-screener
+
+This code was extracted as part of this project:
+
+http://www.underperformingstocks.com
