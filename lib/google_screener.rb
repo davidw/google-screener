@@ -1,6 +1,7 @@
-# Copyright DedaSys LLC 2011
+# Copyright 2011 DedaSys LLC - David N. Welton <davidw@dedasys.com>
 
 require 'open-uri'
+require 'json'
 
 # This is a Ruby interface to the JSON results provided by the Google
 # Screener.  It's not an official API.
