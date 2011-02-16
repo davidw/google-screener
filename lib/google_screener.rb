@@ -21,21 +21,34 @@ class GoogleScreener
     :start    => 0,
     :num      => 20
   }
+
+  # Known options in the screener.
+
+  KNOWN_OPTIONS = [
+                   :MarketCap,
+                   :PE,
+                   :DividendYield,
+                   :Price52WeekPercChange,
+                   :Price13WeekPercChange,
+                   :NetIncomeGrowthRate5Years,
+                   :QuoteLast
+                  ]
+
   SCREENER_MIN = {
     :MarketCap                  => 10_000_000,
     :PE                         => 0,
     :DividendYield              => 0.01,
-    :Price52WeekPercChange      => -97.77,
-    :NetIncomeGrowthRate5Years  => -78.78,
-    :QuoteLast                  => 0.03
+    :Price52WeekPercChange      => -100.00,
+    :NetIncomeGrowthRate5Years  => -100.00,
+    :QuoteLast                  => 0.00
   }
   SCREENER_MAX = {
     :MarketCap                  => 1_500_000_000_000,
     :PE                         => 100,
     :DividendYield              => 38.03,
-    :Price52WeekPercChange      => -15,
-    :NetIncomeGrowthRate5Years  => 419,
-    :QuoteLast                  => 122811
+    :Price52WeekPercChange      => -5,
+    :NetIncomeGrowthRate5Years  => 500,
+    :QuoteLast                  => 150000
   }
 
   class Result
@@ -49,12 +62,22 @@ class GoogleScreener
 
   attr_reader :results
 
-  def initialize(options)
-    merged_minimums = SCREENER_MIN.merge(options[:min])
-    merged_maximums = SCREENER_MAX.merge(options[:max])
-    option_string   = merged_minimums.map { |key, value| "(#{CGI.escape(key.to_s)} > #{value.to_f})" }.join(" & ")
+  def initialize(options = {})
+    merged_minimums = SCREENER_MIN.merge(options[:min] || {})
+    merged_maximums = SCREENER_MAX.merge(options[:max] || {})
+    option_string   = merged_minimums.map do |key, value|
+      if !KNOWN_OPTIONS.include?(key)
+        raise "Unknown 'min' option: #{key}"
+      end
+      "(#{CGI.escape(key.to_s)} > #{value.to_f})"
+    end.join(" & ")
     option_string  += " & "
-    option_string  += merged_maximums.map { |key, value| "(#{CGI.escape(key.to_s)} < #{value.to_f})" }.join(" & ")
+    option_string  += merged_maximums.map do |key, value|
+      if !KNOWN_OPTIONS.include?(key)
+        raise "Unknown 'max' option: #{key}"
+      end
+      "(#{CGI.escape(key.to_s)} < #{value.to_f})"
+    end.join(" & ")
     query   = "((exchange:NYSE) OR (exchange:NASDAQ) OR (exchange:AMEX)) [#{option_string}]"
     @params = BASE_PARAMS.merge(:q => query)
   end

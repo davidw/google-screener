@@ -7,6 +7,12 @@ http://www.google.com/finance/stockscreener
 
 https://github.com/davidw/google-screener
 
+Usage:
+
+    gs = GoogleScreener.new(:min => {:MarketCap => 10_000_000, :Price52WeekPercChange => -100}, :max => {:PE => 10, :Price52WeekPercChange => -5}).sort_as("Price52WeekPercChange")
+    gs.fetch
+    gs.results.each { |res| puts "#{res.name} - #{res.values['QuoteLast']}"}
+
 This code was extracted as part of this project:
 
 http://www.underperformingstocks.com
