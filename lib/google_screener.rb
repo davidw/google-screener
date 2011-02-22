@@ -10,6 +10,8 @@ require 'cgi'
 class GoogleScreener
 
   BASE_URI = "http://www.google.com/finance?"
+  
+  # We don't yet know what :desc and :noIL do, also other :restype options are unknown.
   BASE_PARAMS = {
     :gl       => "us",
     :hl       => "en",
@@ -23,7 +25,6 @@ class GoogleScreener
   }
 
   # Known options in the screener.
-
   KNOWN_OPTIONS = [
                    :MarketCap,
                    :PE,
@@ -33,52 +34,44 @@ class GoogleScreener
                    :NetIncomeGrowthRate5Years,
                    :QuoteLast
                   ]
-
-  SCREENER_MIN = {
-    :MarketCap                  => 10_000_000,
-    :PE                         => 0,
-    :DividendYield              => 0.01,
-    :Price52WeekPercChange      => -100.00,
-    :NetIncomeGrowthRate5Years  => -100.00,
-    :QuoteLast                  => 0.00
+  
+  # Defaults for the query. Probably these values are too specific?
+  DEFAULTS = {
+    :max => {
+      :MarketCap                  => 1_500_000_000_000,
+      :PE                         => 100,
+      :DividendYield              => 50,
+      :Price52WeekPercChange      => -5,
+      :NetIncomeGrowthRate5Years  => 500,
+      :QuoteLast                  => 150000
+    },
+    :min => {
+      :MarketCap                  => 10_000_000,
+      :PE                         => 0,
+      :DividendYield              => 0,
+      :Price52WeekPercChange      => -100,
+      :NetIncomeGrowthRate5Years  => -100,
+      :QuoteLast                  => 0
+    }
   }
-  SCREENER_MAX = {
-    :MarketCap                  => 1_500_000_000_000,
-    :PE                         => 100,
-    :DividendYield              => 38.03,
-    :Price52WeekPercChange      => -5,
-    :NetIncomeGrowthRate5Years  => 500,
-    :QuoteLast                  => 150000
-  }
+  
+  EXCHANGES = "(exchange:NYSE OR exchange:NASDAQ OR exchange:AMEX)"
 
   class Result
     attr_reader :name, :symbol, :values
     def initialize(result)
-      @name = result['title']
-      @symbol = result['ticker']
-      @values = Hash[result['columns'].map { |c| [c['field'], c['value']] }]
+      @name     = result['title']
+      @symbol   = result['ticker']
+      @exchange = result['exchange']
+      @values   = Hash[result['columns'].map { |c| [c['field'], c['value']] }]
     end
   end
 
-  attr_reader :results
+  attr_reader :results, :count
 
   def initialize(options = {})
-    merged_minimums = SCREENER_MIN.merge(options[:min] || {})
-    merged_maximums = SCREENER_MAX.merge(options[:max] || {})
-    option_string   = merged_minimums.map do |key, value|
-      if !KNOWN_OPTIONS.include?(key)
-        raise "Unknown 'min' option: #{key}"
-      end
-      "(#{CGI.escape(key.to_s)} > #{value.to_f})"
-    end.join(" & ")
-    option_string  += " & "
-    option_string  += merged_maximums.map do |key, value|
-      if !KNOWN_OPTIONS.include?(key)
-        raise "Unknown 'max' option: #{key}"
-      end
-      "(#{CGI.escape(key.to_s)} < #{value.to_f})"
-    end.join(" & ")
-    query   = "((exchange:NYSE) OR (exchange:NASDAQ) OR (exchange:AMEX)) [#{option_string}]"
+    string  = screen(:min, options[:min] || {}) + "&" + screen(:max, options[:max] || {})
+    query   = "#{EXCHANGES} [#{string}]"
     @params = BASE_PARAMS.merge(:q => query)
   end
 
@@ -86,15 +79,37 @@ class GoogleScreener
     @params.merge!(:sortas => how)
     self
   end
+  
+  def start(n)
+    @params.merge!(:start => n)
+    self
+  end
+  
+  def limit(n)
+    @params.merge!(:num => n)
+    self
+  end
 
   def fetch
-    @results = get_data.map { |res| Result.new(res) }
+    @count    = response['num_company_results']
+    @results  = response['searchresults'].map { |stock| Result.new(stock) }
+    remove_instance_variable(:@params)
+    remove_instance_variable(:@response)
+    self
   end
 
   private
+  
+  def screen(type, options)
+    comparator = (type == :min ? ">" : "<")
+    DEFAULTS[type].merge(options)
+    .keep_if {|k, v| KNOWN_OPTIONS.include?(k) }
+    .map { |k, v| "#{CGI.escape(k.to_s)}#{comparator}#{v.to_f}" }
+    .join("&")
+  end
 
-  def get_data
-    JSON.parse(open(uri).read)['searchresults']
+  def response
+    @response ||= JSON.parse(open(uri).read)
   end
 
   def uri
